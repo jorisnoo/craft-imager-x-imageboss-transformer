@@ -155,7 +155,8 @@ class ImageBoss extends Component implements TransformerInterface
                 if (property_exists($fs, 'subfolder') && $fs->subfolder !== '' && $fs::class !== Local::class) {
                     $urlSegments[] = App::parseEnv($fs->subfolder);
                 } else {
-                    $urlSegments[] = array_slice(explode('/', $fs->path), -1)[0];
+                    $parts = explode('/', $fs->path);
+                    $urlSegments[] = end($parts);
                 }
             } catch (\Throwable) {
 
