@@ -134,6 +134,8 @@ class ImageBoss extends Component implements TransformerInterface
 
         if (isset($transform['format'])) {
             $opts[] = 'format:'.$transform['format'];
+        } else {
+            $opts[] = 'format:auto';
         }
 
         // parse effects
