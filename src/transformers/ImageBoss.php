@@ -165,8 +165,12 @@ class ImageBoss extends Component implements TransformerInterface
             }
         }
 
-        if ($volume->getSubpath() !== '') {
-            $urlSegments[] = trim(App::parseEnv($volume->getSubpath()), '/');
+        try {
+            if ($volume->getSubpath() !== '') {
+                $urlSegments[] = trim(App::parseEnv($volume->getSubpath()), '/');
+            }
+        } catch (\Exception $e) {
+
         }
 
         // Add file path
