@@ -121,15 +121,15 @@ class ImageBoss extends Component implements TransformerInterface
 
         // Set default opts
         if ($settings->enableCompression === false) {
-             $opts[] = 'compression:false';
+            $opts[] = 'compression:false';
         }
 
         if ($settings->enableProgressive === false) {
-             $opts[] = 'progressive:false';
+            $opts[] = 'progressive:false';
         }
 
         if ($settings->enableAutoRotate === false) {
-             $opts[] = 'autorotate:false';
+            $opts[] = 'autorotate:false';
         }
 
         if (isset($transform['format'])) {
@@ -148,14 +148,14 @@ class ImageBoss extends Component implements TransformerInterface
 
         // Add options
         $urlSegments[] = implode(',', $opts);
+        $volume = $image->getVolume();
+        $fs = $volume->getFs();
 
         // Add cloud source path if applicable
         if ($profile->useCloudSourcePath) {
             try {
-                $fs = $image->getVolume()->getFs();
-
                 if (property_exists($fs, 'subfolder') && $fs->subfolder !== '' && $fs::class !== Local::class) {
-                    $urlSegments[] = App::parseEnv($fs->subfolder);
+                    $urlSegments[] = trim(App::parseEnv($fs->subfolder), '/');
                 } else {
                     $parts = explode('/', $fs->path);
                     $urlSegments[] = end($parts);
@@ -163,6 +163,10 @@ class ImageBoss extends Component implements TransformerInterface
             } catch (\Throwable) {
 
             }
+        }
+
+        if ($volume->getSubpath() !== '') {
+            $urlSegments[] = trim(App::parseEnv($volume->getSubpath()), '/');
         }
 
         // Add file path
