@@ -127,4 +127,8 @@ Price, license and support
 ---
 The plugin is released under the MIT license. It requires Imager X, which is a commercial 
 plugin [available in the Craft plugin store](https://plugins.craftcms.com/imager-x). If you 
-need help, or found a bug, please post an issue in this repo, or in Imager X' repo (preferably). 
+need help, or found a bug, please post an issue in this repo, or in Imager X' repo (preferably).
+
+## Maintainer releases
+
+See [RELEASING.md](RELEASING.md) for versioning, changelog entries and the release command.

@@ -1,0 +1,14 @@
+{
+  "branch": "master",
+  "sign_tag": true,
+  "version_files": [
+    "composer.json"
+  ],
+  "checks": [
+    [
+      "composer",
+      "validate",
+      "--no-check-publish"
+    ]
+  ]
+}
