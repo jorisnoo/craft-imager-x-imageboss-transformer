@@ -1,0 +1,47 @@
+name: Checks
+on:
+  pull_request:
+  push:
+    branches: ['**']
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }} / Imager X ${{ matrix.imager }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { php: '8.2', imager: '^5.0' }
+          - { php: '8.5', imager: '^6.0' }
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: bcmath, curl, dom, gd, intl, mbstring, zip
+          coverage: none
+          tools: composer:v2
+      - run: composer validate --no-check-publish --no-plugins
+      - run: composer update --with "spacecatninja/imager-x:$IMAGER" --no-plugins --no-scripts --no-interaction --prefer-dist
+        env:
+          IMAGER: ${{ matrix.imager }}
+      - run: composer --no-plugins audit
+      - run: composer --no-plugins test
+      - run: composer --no-plugins analyse
+  required:
+    name: Package checks
+    if: always()
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: test "$RESULT" = success
+        env:
+          RESULT: ${{ needs.test.result }}

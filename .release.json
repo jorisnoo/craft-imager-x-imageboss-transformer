@@ -10,6 +10,9 @@
       "validate",
       "--no-check-publish",
       "--no-plugins"
-    ]
+    ],
+    ["composer", "--no-plugins", "audit"],
+    ["composer", "--no-plugins", "test"],
+    ["composer", "--no-plugins", "analyse"]
   ]
 }

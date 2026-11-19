@@ -14,55 +14,31 @@ use spacecatninja\imagerx\models\TransformedImageInterface;
 
 class ImageBossTransformedImageModel extends BaseTransformedImageModel implements TransformedImageInterface
 {
-    /**
-     * ImgixTransformedImageModel constructor.
-     *
-     * @param string|null $imageUrl
-     * @param Asset|null  $source
-     * @param array       $transform
-     */
-    public function __construct(string $imageUrl = null, Asset $source = null, array $transform = [])
+    public function __construct(?string $imageUrl = null, ?Asset $source = null, array $transform = [])
     {
         if ($imageUrl !== null) {
             $this->url = $imageUrl;
         }
 
-        $mode = $transform['mode'] ?? 'crop';
+        $width = (int)($transform['width'] ?? 0);
+        $height = (int)($transform['height'] ?? 0);
+        if ($width > 0 && $height > 0 && strtolower($transform['mode'] ?? 'crop') !== 'fit') {
+            $this->width = $width;
+            $this->height = $height;
+            return;
+        }
 
-        if (isset($transform['width'], $transform['height'])) {
-            $this->width = (int)$transform['width'];
-            $this->height = (int)$transform['height'];
-
-            if ($source !== null && $mode === 'fit') {
-                [$sourceWidth, $sourceHeight] = $this->getSourceImageDimensions($source);
-
-                $transformW = (int)$transform['width'];
-                $transformH = (int)$transform['height'];
-
-                if ($sourceWidth !== 0 && $sourceHeight !== 0) {
-                    if ($sourceWidth / $sourceHeight > $transformW / $transformH) {
-                        $useW = min($transformW, $sourceWidth);
-                        $this->width = $useW;
-                        $this->height = round($useW * ($sourceHeight / $sourceWidth));
-                    } else {
-                        $useH = min($transformH, $sourceHeight);
-                        $this->width = round($useH * ($sourceWidth / $sourceHeight));
-                        $this->height = $useH;
-                    }
-                }
+        [$sourceWidth, $sourceHeight] = $source === null ? [0, 0] : $this->getSourceImageDimensions($source);
+        if ($width > 0 && $height > 0) {
+            // A fit box alone establishes neither output dimension.
+            if ($sourceWidth > 0 && $sourceHeight > 0) {
+                $scale = min(1, $width / $sourceWidth, $height / $sourceHeight);
+                $this->width = (int)round($scale * $sourceWidth);
+                $this->height = (int)round($scale * $sourceHeight);
             }
-        } else if (isset($transform['width']) || isset($transform['height'])) {
-            if ($source !== null && $transform !== null) {
-                [$sourceWidth, $sourceHeight] = $this->getSourceImageDimensions($source);
-                [$w, $h] = $this->calculateTargetSize($transform, $sourceWidth ?? 1, $sourceHeight ?? 1);
-
-                $this->width = $w;
-                $this->height = $h;
-            }
+        } elseif ($width > 0 || $height > 0) {
+            [$this->width, $this->height] = $this->calculateTargetSize($transform, $sourceWidth, $sourceHeight);
         } else {
-            // Neither is set, image is not resized. Just get dimensions and return.
-            [$sourceWidth, $sourceHeight] = $this->getSourceImageDimensions($source);
-
             $this->width = $sourceWidth;
             $this->height = $sourceHeight;
         }
@@ -75,7 +51,7 @@ class ImageBossTransformedImageModel extends BaseTransformedImageModel implement
      */
     protected function getSourceImageDimensions(Asset $source): array
     {
-        return [$source->getWidth(), $source->getHeight()];
+        return [(int)$source->getWidth(), (int)$source->getHeight()];
     }
 
     /**
@@ -87,6 +63,9 @@ class ImageBossTransformedImageModel extends BaseTransformedImageModel implement
      */
     protected function calculateTargetSize(array $transform, int $sourceWidth, int $sourceHeight): array
     {
+        if ($sourceWidth <= 0 || $sourceHeight <= 0) {
+            return [(int)($transform['width'] ?? 0), (int)($transform['height'] ?? 0)];
+        }
         $ratio = $sourceWidth / $sourceHeight;
 
         $w = $transform['width'] ?? null;

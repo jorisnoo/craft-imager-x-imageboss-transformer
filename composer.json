@@ -2,7 +2,7 @@
     "name": "spacecatninja/imager-x-imageboss-transformer",
     "description": "ImageBoss transformer for Imager X",
     "type": "craft-plugin",
-    "version": "3.0.1",
+    "version": "3.1.0",
     "license": "MIT",
     "keywords": [
         "craft",
@@ -27,8 +27,17 @@
         }
     ],
     "require": {
-        "php": "^8.0",        
-        "craftcms/cms": "^5.0.0-beta.1"
+        "php": "^8.2",
+        "craftcms/cms": "^5.0",
+        "spacecatninja/imager-x": "^5.0 || ^6.0"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^11.5 || ^12.5 || ^13.0"
+    },
+    "scripts": {
+        "test": "phpunit --bootstrap tests/bootstrap.php tests",
+        "analyse": "phpstan analyse --no-progress --memory-limit=512M"
     },
     "autoload": {
         "psr-4": {
