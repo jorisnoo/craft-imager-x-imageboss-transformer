@@ -10,7 +10,6 @@ namespace spacecatninja\imagebosstransformer\helpers;
 
 use spacecatninja\imagebosstransformer\ImageBossTransformer;
 use spacecatninja\imagebosstransformer\models\ImageBossProfile;
-use spacecatninja\imagerx\models\ConfigModel;
 use spacecatninja\imagerx\services\ImagerService;
 
 class ImageBossHelpers
@@ -22,9 +21,10 @@ class ImageBossHelpers
      */
     public static function getProfile(string $name): ?ImageBossProfile
     {
+        /** @var \spacecatninja\imagebosstransformer\models\Settings $settings */
         $settings = ImageBossTransformer::$plugin->getSettings();
         
-        if ($settings && isset($settings->profiles[$name])) {
+        if (isset($settings->profiles[$name])) {
             return new ImageBossProfile($settings->profiles[$name]);
         }
         
@@ -38,11 +38,10 @@ class ImageBossHelpers
      */
     public static function getFocalPointString(array $transform): string
     {
-        /** @var ConfigModel $settings */
         $config = ImagerService::getConfig();
-        [$x, $y] = explode(' ', $config->getSetting('position', $transform));
-        
-        $r = 'fp-x:'.(((int)$x)/100).',fp-y:'.(((int)$y)/100);
+        $position = preg_split('/\s+/', trim($config->getSetting('position', $transform)));
+        $coordinate = static fn ($value): float => round(min(100, max(0, (float)$value)) / 100, 4);
+        $r = 'fp-x:'.$coordinate($position[0] === '' ? 50 : $position[0]).',fp-y:'.$coordinate($position[1] ?? 50);
         
         if (isset($transform['cropZoom'])) {
             $r .= ',fp-z:'.$transform['cropZoom'];
@@ -60,7 +59,7 @@ class ImageBossHelpers
      */
     public static function getLetterboxColor($letterboxDef): string
     {
-        $color = $letterboxDef['color'];
+        $color = $letterboxDef['color'] ?? '#000';
 
         $color = str_replace('#', '', $color);
         
@@ -83,15 +82,29 @@ class ImageBossHelpers
      *
      * @return string
      */
-    public static function getQualityFromExtension(string $ext, array $transform = null): string
+    public static function getQualityFromExtension(string $ext, ?array $transform = null): string
     {
-        /** @var ConfigModel $settings */
         $config = ImagerService::getConfig();
 
-        switch ($ext) {
+        $format = strtolower($transform['format'] ?? $ext);
+        if (isset($transform['quality'])) {
+            return (string)$transform['quality'];
+        }
+        // Imager normalizes generic `quality` to `jpegQuality`. An explicit
+        // output-specific setting still takes precedence over that alias.
+        $specificKey = match ($format) {
+            'png' => 'pngCompressionLevel',
+            'webp' => 'webpQuality',
+            'avif' => 'avifQuality',
+            default => 'jpegQuality',
+        };
+        if (!isset($transform[$specificKey]) && isset($transform['jpegQuality'])) {
+            return (string)$transform['jpegQuality'];
+        }
+        switch ($format) {
             case 'png':
                 $pngCompression = $config->getSetting('pngCompressionLevel', $transform);
-                return max(100 - ($pngCompression * 10), 1);
+                return (string)max(100 - ($pngCompression * 10), 1);
             case 'webp':
                 return $config->getSetting('webpQuality', $transform);
             case 'avif':

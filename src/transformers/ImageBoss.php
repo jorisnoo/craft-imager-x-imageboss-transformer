@@ -25,7 +25,7 @@ class ImageBoss extends Component implements TransformerInterface
 {
 
     /**
-     * @param Asset $image
+     * @param Asset|string $image
      * @param array $transforms
      *
      * @return array|null
@@ -34,6 +34,10 @@ class ImageBoss extends Component implements TransformerInterface
      */
     public function transform($image, array $transforms): ?array
     {
+        if (!$image instanceof Asset) {
+            throw new ImagerException('ImageBoss requires a Craft asset; configure mockImage and fallbackImage as asset IDs, not paths or URLs.');
+        }
+
         $transformedImages = [];
 
         foreach ($transforms as $transform) {
@@ -57,24 +61,29 @@ class ImageBoss extends Component implements TransformerInterface
         $config = ImagerService::getConfig();
         $transformerParams = $transform['transformerParams'] ?? [];
 
-        $profileName = $transformerParams['profile'] ?? $settings->defaultProfile;
+        $volume = $image->getVolume();
+        $profileName = $transformerParams['profile'] ?? $settings->volumeProfiles[$volume->handle] ?? $settings->defaultProfile;
         $profile = ImageBossHelpers::getProfile($profileName);
 
         if ($profile === null) {
             throw new ImagerException("No ImageBoss profile with name `$profileName` exists.");
         }
 
-        $urlSegments = [$settings->baseUrl, $profile->sourceName];
+        $urlSegments = [rtrim($settings->baseUrl, '/'), rawurlencode($profile->sourceName)];
         $opts = [];
-        $hasBothDimensions = isset($transform['width'], $transform['height']);
-        $sizeSegment = '';
-
-        if ($hasBothDimensions) {
-            $sizeSegment = $transform['width'].'x'.$transform['height'];
+        foreach (['width', 'height'] as $dimension) {
+            if (isset($transform[$dimension]) && (int)$transform[$dimension] <= 0) {
+                throw new ImagerException("ImageBoss requires a positive $dimension.");
+            }
         }
 
-        if ($hasBothDimensions) {
-            $mode = $transform['mode'] ?? 'crop';
+        $mode = strtolower($transform['mode'] ?? 'crop');
+        if (in_array($mode, ['stretch', 'croponly'], true)) {
+            throw new ImagerException("ImageBoss does not support resize mode `$mode`.");
+        }
+
+        if (isset($transform['width'], $transform['height'])) {
+            $sizeSegment = $transform['width'].'x'.$transform['height'];
             $coverMode = $transformerParams['coverMode'] ?? $transform['coverMode'] ?? null;
 
             switch ($mode) {
@@ -82,16 +91,15 @@ class ImageBoss extends Component implements TransformerInterface
                     $urlSegments[] = 'cover:inside';
                     $urlSegments[] = $sizeSegment;
                     break;
-                case 'stretch':
-                case 'croponly':
-                    // not supported
-                    break;
                 case 'letterbox':
                     $urlSegments[] = 'cover:contain';
                     $urlSegments[] = $sizeSegment;
 
                     $letterboxDef = $config->getSetting('letterbox', $transform);
-                    $opts[] = 'fill-color:'.ImageBossHelpers::getLetterboxColor($letterboxDef);
+                    $color = ImageBossHelpers::getLetterboxColor($letterboxDef);
+                    if ($color !== '') {
+                        $opts[] = 'fill-color:'.$color;
+                    }
                     break;
                 default:
                     if ($coverMode) {
@@ -114,6 +122,8 @@ class ImageBoss extends Component implements TransformerInterface
         } elseif (isset($transform['height'])) {
             $urlSegments[] = 'height';
             $urlSegments[] = $transform['height'];
+        } else {
+            $urlSegments[] = 'cdn';
         }
 
         // Set quality
@@ -133,7 +143,7 @@ class ImageBoss extends Component implements TransformerInterface
         }
 
         if (isset($transform['format'])) {
-            $opts[] = 'format:'.$transform['format'];
+            $opts[] = 'format:'.strtolower($transform['format']);
         }
 
         // parse effects
@@ -146,26 +156,21 @@ class ImageBoss extends Component implements TransformerInterface
 
         // Add options
         $urlSegments[] = implode(',', $opts);
-        $volume = $image->getVolume();
-        $fs = $volume->getFs();
-
-        // Add cloud source path if applicable
+        $pathParts = [];
         if ($profile->useCloudSourcePath) {
-            try {
-                if (property_exists($fs, 'subfolder') && $fs->subfolder !== '' && $fs::class !== Local::class) {
-                    $urlSegments[] = trim(App::parseEnv($fs->subfolder), '/');
-                }
-            } catch (\Throwable) {
-
+            $fs = $volume->getFs();
+            if (!$fs instanceof Local && property_exists($fs, 'subfolder')) {
+                $pathParts[] = (string)App::parseEnv($fs->subfolder);
             }
         }
-
-        if ($volume->getSubpath() !== '') {
-            $urlSegments[] = trim(App::parseEnv($volume->getSubpath()), '/');
+        $pathParts[] = $volume->getSubpath(false);
+        $pathParts[] = $image->getPath();
+        foreach ($pathParts as $part) {
+            $part = trim($part, '/');
+            if ($part !== '') {
+                $urlSegments[] = implode('/', array_map('rawurlencode', explode('/', $part)));
+            }
         }
-
-        // Add file path
-        $urlSegments[] = $image->path;
 
         // Merge to url
         $url = implode('/', $urlSegments);

@@ -5,7 +5,7 @@ Also, an example of [how to make a custom transformer for Imager X](https://imag
 
 ## Requirements
 
-This plugin requires Craft CMS 5.0.0-beta.1 or later, [Imager X 5.0.0-beta.1](https://github.com/spacecatninja/craft-imager-x/) or later,
+This plugin requires PHP 8.2 or later, Craft CMS 5, [Imager X 5 or 6](https://github.com/spacecatninja/craft-imager-x/),
 and an account at [ImageBoss](https://imageboss.me/).
  
 ## Usage
@@ -34,8 +34,8 @@ that the source is set up to use the same buckets that you assets are on.
 This transformer only supports a subset of what Imager X can do when using the default `craft` transformer. 
 All the basic transform parameters are supported, with the following exceptions:
 
-- Only assets can be transformed. If you need to transform external images, you need to switch to the `craft` transformer for those transforms.
-- The `cropOnly` and `stretch` resize modes are not supported.
+- Only Craft assets can be transformed. Use asset IDs for Imager's `mockImage` and `fallbackImage`; use another transformer for external images.
+- The `cropOnly` and `stretch` resize modes are rejected. Without a requested size, the transformer uses ImageBoss's `cdn` operation and preserves the original dimensions. A dimension that cannot be determined from asset metadata is reported as `0`.
 - Opacity for colors on `letterbox` resize mode is not supported.
 - Only the following `effects` are converted and supported: `grayscale`, `sharpen`, `blur` and `gamma`.
 – Watermarks are not translated automatically from Imager syntax to ImageBoss', but you can still add watermarks by manually passing them through the `options` object (see below).
@@ -56,7 +56,7 @@ For more information, check out the [ImageBoss documentation](https://imageboss.
 
 To install the plugin, follow these instructions:
 
-1. Install with composer via `composer require spacecatninja/imager-x-imageboss-transformer` from your project directory.
+1. To install this maintained fork, add its VCS repository first: `composer config repositories.imageboss-transformer vcs https://github.com/jorisnoo/craft-imager-x-imageboss-transformer`. Then run `composer require spacecatninja/imager-x-imageboss-transformer:^3.1` in your project.
 2. Install the plugin in the Craft Control Panel under Settings > Plugins, or from the command line via `./craft plugin/install imager-x-imageboss-transformer`.
 
 
@@ -101,7 +101,7 @@ setting (AWS S3 and GCS does, local volumes does not).
 
 ### defaultProfile [string]
 Default: `''`  
-Sets the default profile to use (see `profiles`). You can override profile at the transform level by setting it through the `transformParams` transform parameter. Example:
+Sets the default profile. A volume mapping takes precedence over this default; an explicit `transformerParams.profile` takes precedence over both. Example:
 
 ```
 {% set transforms = craft.imagerx.transformImage(asset, 
@@ -109,6 +109,12 @@ Sets the default profile to use (see `profiles`). You can override profile at th
     { transformerParams: { profile: 'myotherprofile' } }
 ) %}
 ```
+
+### volumeProfiles [array]
+Map Craft volume handles to profile names, e.g. `'volumeProfiles' => ['uploads' => 'web']`. This also applies to Control Panel thumbnails and native transforms routed through Imager X.
+
+### baseUrl [string]
+The delivery origin, default `https://img.imageboss.me`. Set it to your ImageBoss custom domain, e.g. `https://images.example.com`. Put signing tokens on the individual profiles; the legacy `apiKey` setting is unused and deprecated.
 
 ### enableCompression [bool]
 Default: `true`  

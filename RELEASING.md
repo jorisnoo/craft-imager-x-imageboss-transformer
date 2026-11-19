@@ -12,9 +12,12 @@ Configured release checks:
 
 ```sh
 composer validate --no-check-publish --no-plugins
+composer --no-plugins audit
+composer --no-plugins test
+composer --no-plugins analyse
 ```
 
-Install the project’s normal dependencies first. The helper runs these checks when publishing; dry-run prints them without executing them. Run any additional checks needed for the changed behavior before committing.
+Install dependencies with `composer update --no-plugins --no-scripts`. The helper runs these checks when publishing; dry-run prints them without executing them. On every PR and branch push the `Package checks` job requires the whole PHP/Imager X test matrix to pass.
 
 ## Release
 
